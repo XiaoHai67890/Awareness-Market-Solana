@@ -8,6 +8,8 @@ Program [`9RQqnFRPg2z7XNtggHLTnw3sREjwivB88mXZjuMnvxit`](https://explorer.solana
 
 Run this edition from the cloned source using the [Solana guide](docs/solana-devnet.zh-CN.md). The npm setup commands below refer to the upstream distribution and do not install this repository's Solana additions. This source checkout is marked private for npm to prevent accidental publication under the upstream package name.
 
+The memory API → Devnet submission → finalized receipt flow has been exercised with two sequential transitions. See the [reproducible demo and verification commands](docs/solana-devnet.zh-CN.md#devnet-记忆提交与独立验证).
+
 <p align="center">
   <strong>Languages:</strong> English | <a href="./README.zh-CN.md">简体中文</a>
 </p>

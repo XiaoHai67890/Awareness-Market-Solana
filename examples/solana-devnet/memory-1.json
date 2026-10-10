@@ -1,0 +1,18 @@
+{
+  "content": "Devnet demonstration memory: preserve AI agent knowledge locally and anchor its cryptographic commitment to the Awareness Memory Registry on Solana.",
+  "title": "Devnet demonstration: local memory privacy",
+  "source": "devnet-demonstration",
+  "tags": ["devnet-demonstration"],
+  "insights": {
+    "knowledge_cards": [{
+      "category": "insight",
+      "title": "Keep memory payloads local when anchoring knowledge",
+      "summary": "This synthetic Devnet demonstration records a privacy rule: store memory text and private commitment witnesses in the local workspace, while publishing only cryptographic commitments and linked state roots to the Solana registry. An on-chain receipt proves an authorized submission, not the truth of the underlying memory.",
+      "tags": ["devnet-demonstration"],
+      "confidence": 0.9,
+      "novelty_score": 0.9,
+      "durability_score": 0.9,
+      "specificity_score": 0.9
+    }]
+  }
+}

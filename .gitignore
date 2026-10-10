@@ -23,3 +23,7 @@ reports/mutation/
 *.pem
 *.p12
 *.pfx
+
+# Persistent Devnet demo workspace (memory, local identity, and private witnesses)
+demo/devnet-workspace/
+demo/devnet-home/

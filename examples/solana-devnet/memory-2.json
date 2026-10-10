@@ -1,0 +1,18 @@
+{
+  "content": "Devnet demonstration memory: confirm each submitted transition using its finalized transaction and exact immutable Receipt PDA before marking the local outbox as anchored.",
+  "title": "Devnet demonstration: independent receipt verification",
+  "source": "devnet-demonstration",
+  "tags": ["devnet-demonstration"],
+  "insights": {
+    "knowledge_cards": [{
+      "category": "insight",
+      "title": "Verify each finalized transition before confirming the outbox",
+      "summary": "This second synthetic Devnet demonstration records the verification rule: the client and daemon must check the selected network, program owner, exact Receipt PDA, transition commitments and finalized transaction. The second transition must continue the first state root, and retrying an already anchored queue must not create duplicate submissions.",
+      "tags": ["devnet-demonstration"],
+      "confidence": 0.9,
+      "novelty_score": 0.9,
+      "durability_score": 0.9,
+      "specificity_score": 0.9
+    }]
+  }
+}

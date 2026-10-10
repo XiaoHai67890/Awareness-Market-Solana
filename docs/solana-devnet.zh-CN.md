@@ -81,6 +81,68 @@ node bin/awareness-local.mjs anchor flush \
 
 CLI 会拒绝连接到其他工作区的 daemon。首次 flush 创建 Space，随后按序提交 outbox。再次修改一张卡片并 flush，可展示第二次状态根链接到第一次。
 
+## Devnet 记忆提交与独立验证
+
+2026-10-10 已通过正常 daemon 记忆 API 和 CLI 完成两次真实 Devnet 提交，序号为 1、2，待提交队列为 0。演示 Space PDA 为 [`GejMdC1Yn56pXSZUHmrjbtYwuaa5XMhrMW1AU4MJdEQ7`](https://explorer.solana.com/address/GejMdC1Yn56pXSZUHmrjbtYwuaa5XMhrMW1AU4MJdEQ7?cluster=devnet)。公开验收数据见 [JSON](../reports/solana-devnet-memory-verification.json)。
+
+本机演示工作区是仓库下的 `demo/devnet-workspace/`，daemon 端口为 `37810`；该工作区、独立运行目录 `demo/devnet-home/`、数据库和 witness 均已被 Git 忽略。两个演示记忆输入位于 `examples/solana-devnet/`，内容是公开的合成示例。
+
+**读取已经提交的证明不需要钱包或运行中的 daemon：**
+
+```sh
+node scripts/solana-verify.mjs --project demo/devnet-workspace
+```
+
+验证脚本以只读方式打开本地索引及锚定数据库，重算私有 witness 的承诺和连续状态根，重放卡片变更并核对当前已索引卡片的 digest 字段，再查询 finalized 链上账户及对应交易。它只输出公开证明字段，不输出记忆正文、盐值或私钥。有 pending 记录、尚未 build 的卡片变更、缺失 witness、内容不一致或链上核验失败时，命令失败，不会把未完成的流程报告成成功。验证范围是[卡片 digest profile](memory-card-digest-v2.md)中的字段及其承诺历史，不证明内容真实性，也不覆盖所有原始记忆字段。
+
+**在已有演示工作区继续使用：** 在一个终端启动服务，保持该终端运行。先确保 `37810` 空闲；正常 `start` 命令会切换占用同一端口的 Awareness daemon 工作区，因此演示应使用独立端口。
+
+```sh
+AWARENESS_HOME="$PWD/demo/devnet-home" node bin/awareness-local.mjs start \
+  --foreground --project "$PWD/demo/devnet-workspace" --port 37810
+```
+
+另一个终端中按顺序执行；每次记忆提交脚本都会等到对应知识卡片完成索引。锚定对象是知识卡片快照，仅写入普通记忆而没有生成知识卡片，不一定产生待提交更新。
+
+```sh
+node scripts/solana-demo-record.mjs --project demo/devnet-workspace --port 37810 --step 1
+node bin/awareness-local.mjs anchor flush --project demo/devnet-workspace --port 37810 \
+  --keypair ~/.config/solana/awareness-market/devnet-deployer-keypair.json
+
+node scripts/solana-demo-record.mjs --project demo/devnet-workspace --port 37810 --step 2
+node bin/awareness-local.mjs anchor flush --project demo/devnet-workspace --port 37810 \
+  --keypair ~/.config/solana/awareness-market/devnet-deployer-keypair.json
+
+node scripts/solana-verify.mjs --project demo/devnet-workspace
+```
+
+已完成本次演示的工作区重复运行时，记录脚本识别已经存在的同内容知识卡片，flush 返回 `Nothing to anchor.`，不会重复提交。若需新的一组交易，创建独立工作区和新的 Space，不要删除现有数据库或 witness。
+
+**新克隆仓库的初始化：** 克隆不包含本机演示状态或钱包。先安装 Node 依赖，并创建一个新的演示工作区：
+
+```sh
+node --input-type=module - <<'JS'
+import fs from 'node:fs';
+const dir = 'demo/devnet-workspace/.awareness';
+if (fs.existsSync('demo/devnet-workspace')) throw new Error('Workspace exists; preserve its state');
+fs.mkdirSync(dir, {recursive: true, mode: 0o700});
+fs.mkdirSync('demo/devnet-home', {recursive: true, mode: 0o700});
+fs.writeFileSync(`${dir}/config.json`, JSON.stringify({
+  daemon: {port: 37810}, cloud: {enabled: false}, telemetry: {enabled: false},
+  git_sync: {enabled: false}, extraction: {enabled: false}
+}, null, 2), {mode: 0o600, flag: 'wx'});
+fs.writeFileSync(`${dir}/scan-config.json`, JSON.stringify({enabled: false, watch_enabled: false}), {mode: 0o600, flag: 'wx'});
+JS
+
+node scripts/solana-configure.mjs --project demo/devnet-workspace \
+  --program-id 9RQqnFRPg2z7XNtggHLTnw3sREjwivB88mXZjuMnvxit \
+  --controller <YOUR_DEVNET_WALLET_PUBLIC_KEY> --cluster devnet
+```
+
+使用有测试 SOL 的自有 Devnet 钱包，并在上面的 flush 命令中替换 `--keypair` 路径。记忆提交脚本不接触密钥，也不发送链上交易；只有 flush 在本地签名。本次三笔交易（注册和两次提交）合计手续费 0.000015 Devnet SOL，账户租金 0.00641096 Devnet SOL。其他工作区的实际消耗以链上结果为准。
+
+结束演示可执行 `node bin/awareness-local.mjs stop --project demo/devnet-workspace`。保留整个演示工作区以便以后验证本地 witness 和恢复队列。
+
 ## 验收与恢复
 
 - 记录实际 Program ID、交易签名和 Space PDA，通过 https://explorer.solana.com/?cluster=devnet 查看。

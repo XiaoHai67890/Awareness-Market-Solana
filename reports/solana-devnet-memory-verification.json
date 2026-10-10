@@ -1,0 +1,92 @@
+{
+  "verified": true,
+  "verifiedAt": "2026-10-10T12:45:50.640Z",
+  "commitment": "finalized",
+  "programId": "9RQqnFRPg2z7XNtggHLTnw3sREjwivB88mXZjuMnvxit",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "spaceId": "0x6587305b10ba3851b062126b4d37abafa630075694876765962aafafdff8894c",
+  "spacePda": "GejMdC1Yn56pXSZUHmrjbtYwuaa5XMhrMW1AU4MJdEQ7",
+  "sequence": 2,
+  "receiptCount": 2,
+  "stateRoot": "0xd145d3936845a6d13418b4fa10784ae27af73f736b65d30ae7ca2ab9af537a4c",
+  "witnessesVerified": true,
+  "currentCardCount": 2,
+  "cardDigestsVerified": true,
+  "transitions": [
+    {
+      "seq": 1,
+      "prevStateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "transitionId": "0x9ae19d6af10c5cc1f96462d8d2e534bd987a3ef8f53aa43604cc565e2d7dcaa9",
+      "nextStateRoot": "0xe4fc8de8b51840a11615d9c9b3e15cc756926ce03c187885be3f226c1dcbdab1",
+      "tx": "25YACYBr7wXFAtQjSTfJHg6b1hPDhr38YgBSm21VtqoYTRuGXVx3mkp3zMj3pG6hWsxC7q8NBT7KmYvBUFAXAfSX",
+      "receipt": "FEmAxcVz6PEo23ckdLkpvHsAzFXydbdVhdiJgNkq5JX5",
+      "slot": 509543826,
+      "confirmationBasis": "finalized transaction and receipt",
+      "witnessVerified": true
+    },
+    {
+      "seq": 2,
+      "prevStateRoot": "0xe4fc8de8b51840a11615d9c9b3e15cc756926ce03c187885be3f226c1dcbdab1",
+      "transitionId": "0xd0e4431f3952832765be2ceba6a9bba5db25dfef9272af9efb85db63353a1171",
+      "nextStateRoot": "0xd145d3936845a6d13418b4fa10784ae27af73f736b65d30ae7ca2ab9af537a4c",
+      "tx": "3bnf57JdQ6Y7w44NjKeQVtTz3JFR3kLGpuhv2xPUsXALXYYerQi2X6h8PpTQTuiBmW2rubGV1RRz5uxt92NsYsS4",
+      "receipt": "2diHkNKhJgX2e86626PgXdYFckJcejcs56HkjcqhaChL",
+      "slot": 509543886,
+      "confirmationBasis": "finalized transaction and receipt",
+      "witnessVerified": true
+    }
+  ],
+  "network": "devnet",
+  "controller": "CFhBDR6xLXajUtV87mZtpCrCiTt7h3XtT5V8aiiCnKQ7",
+  "transactions": [
+    {
+      "signature": "3bnf57JdQ6Y7w44NjKeQVtTz3JFR3kLGpuhv2xPUsXALXYYerQi2X6h8PpTQTuiBmW2rubGV1RRz5uxt92NsYsS4",
+      "slot": 509543886,
+      "confirmationStatus": "finalized",
+      "error": null,
+      "feeLamports": 5000,
+      "kind": "commit"
+    },
+    {
+      "signature": "25YACYBr7wXFAtQjSTfJHg6b1hPDhr38YgBSm21VtqoYTRuGXVx3mkp3zMj3pG6hWsxC7q8NBT7KmYvBUFAXAfSX",
+      "slot": 509543826,
+      "confirmationStatus": "finalized",
+      "error": null,
+      "feeLamports": 5000,
+      "kind": "commit"
+    },
+    {
+      "signature": "4dkFew4j3e2vSfeB7soWmETY5EXiafC49C3tGuzmEGY4XRBNPgDYBrbfRVEf4SvVZxTU67NcgRhZ3KySQVT2vMzy",
+      "slot": 509543812,
+      "confirmationStatus": "finalized",
+      "error": null,
+      "feeLamports": 5000,
+      "kind": "register_space"
+    }
+  ],
+  "cost": {
+    "unit": "lamports",
+    "total": 6425960,
+    "transactionFees": 15000,
+    "accountRent": 6410960
+  },
+  "flowChecks": {
+    "daemonRestartPreservedState": true,
+    "repeatedFlushCreatedNoTransactions": true,
+    "repeatedMemoryInputsCreatedNoCards": true,
+    "anchoredCount": 2,
+    "pendingCount": 0,
+    "currentCardCount": 2,
+    "cloudEnabled": false,
+    "telemetryEnabled": false,
+    "tamperedTransitionRejected": true,
+    "tamperCheckSentTransaction": false
+  },
+  "localChecks": {
+    "focusedNodeTestsPassed": 31,
+    "focusedNodeTestsFailed": 0,
+    "demoRecordApiIntegrationPassed": true
+  },
+  "verificationScriptSha256": "ceef1cd08d915c6a641ff40c4f0b1e9870421f9050c05731b3037c9b25dd70f9",
+  "scope": "Indexed knowledge-card digest fields and their committed history; does not prove memory truth or cover every raw-memory field."
+}

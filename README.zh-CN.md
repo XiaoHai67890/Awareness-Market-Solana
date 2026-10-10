@@ -8,6 +8,8 @@
 
 请克隆本仓库，按照 [Solana 指南](docs/solana-devnet.zh-CN.md)从本地源码运行。下文 npm 安装命令对应上游发行包，不会安装本仓库新增的 Solana 功能。本仓库设置了 npm 的 private 标记，防止以原项目包名误发布；这不影响 GitHub 仓库的 Public 可见性。
 
+已跑通记忆 API → Devnet 提交 → finalized 凭证确认，两次连续状态更新均已验证。参见[可复现的演示与独立验证命令](docs/solana-devnet.zh-CN.md#devnet-记忆提交与独立验证)。
+
 <p align="center">
   <strong>语言:</strong> 简体中文 | <a href="./README.md">English</a>
 </p>

@@ -77,7 +77,9 @@
     "prepublishOnly": "node scripts/prepublish-gate.mjs",
     "check:vector-drift": "node scripts/check-vector-drift.mjs",
     "test:anchoring": "node --test test/anchoring-*.test.mjs test/card-digest-profile.test.mjs",
-    "solana:configure": "node scripts/solana-configure.mjs"
+    "solana:configure": "node scripts/solana-configure.mjs",
+    "solana:demo-record": "node scripts/solana-demo-record.mjs",
+    "solana:verify": "node scripts/solana-verify.mjs"
   },
   "bugs": {
     "url": "https://github.com/XiaoHai67890/Awareness-Market-Solana/issues"
