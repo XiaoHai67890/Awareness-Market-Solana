@@ -1,0 +1,25 @@
+node_modules/
+contracts/solana/target/
+contracts/solana/.anchor/
+contracts/solana/.local/
+test-ledger/
+*-keypair.json
+*.keypair.json
+.awareness/anchoring.sqlite*
+.awareness/witness/
+.DS_Store
+
+# Local memories, credentials, and generated test output
+.awareness/
+.stryker-tmp/
+test-results/
+playwright-report/
+coverage/
+reports/mutation/
+.mcp.json
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx

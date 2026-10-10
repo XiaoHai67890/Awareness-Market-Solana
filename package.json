@@ -1,0 +1,87 @@
+{
+  "name": "@awareness.market/local",
+  "version": "0.12.5",
+  "mcpName": "io.github.everest-an/awareness-local",
+  "description": "Local-first AI agent memory system. No account needed.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XiaoHai67890/Awareness-Market-Solana.git"
+  },
+  "type": "module",
+  "bin": {
+    "awareness-local": "bin/cli.cjs"
+  },
+  "main": "./src/api.mjs",
+  "exports": {
+    ".": "./src/api.mjs",
+    "./api": "./src/api.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
+    "@solana/web3.js": "1.98.4",
+    "better-sqlite3": "^12.8.0",
+    "ignore": "^7.0.5",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@stryker-mutator/core": "^9.6.1",
+    "@types/better-sqlite3": "^7.6.0"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "memory",
+    "local",
+    "mcp",
+    "claude",
+    "cursor",
+    "windsurf",
+    "awareness"
+  ],
+  "files": [
+    "bin/",
+    "src/",
+    "scripts/card-quality-report.mjs",
+    "scripts/clean-noise-cards.mjs",
+    "awareness-spec.json",
+    "LICENSE",
+    "README.md",
+    "install-transformers.mjs",
+    "scripts/solana-configure.mjs",
+    "docs/solana-devnet.zh-CN.md",
+    "docs/memory-card-digest-v2.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "playwright test --config=playwright.config.mjs",
+    "test:e2e:project-isolation": "node --test test/e2e/user-journeys/project-isolation.test.mjs",
+    "test:mutation:project-isolation": "stryker run stryker.project-dir.conf.mjs",
+    "benchmark": "node bin/awareness-local.mjs benchmark",
+    "benchmark:fixtures": "node bin/awareness-local.mjs benchmark --project ../../tests/memory-benchmark/projects/core-recall --dataset ../../tests/memory-benchmark/datasets/recall_core.jsonl --backend builtin --reindex",
+    "benchmark:perception": "node src/benchmark/perception-benchmark.mjs --dataset ../../tests/memory-benchmark/datasets/perception_signals.jsonl --report ../../tests/memory-benchmark/reports/perception_guard_baseline.json --markdown-report ../../tests/memory-benchmark/reports/perception_guard_baseline.md",
+    "benchmark:universal": "node bin/awareness-local.mjs benchmark --project ../../tests/memory-benchmark/projects/universal-core --dataset ../../tests/memory-benchmark/datasets/universal_core.jsonl --backend all --reindex --report ../../tests/memory-benchmark/reports/universal_core_baseline.json",
+    "benchmark:universal:robust": "node bin/awareness-local.mjs benchmark --project ../../tests/memory-benchmark/projects/universal-core --dataset ../../tests/memory-benchmark/datasets/universal_robust.jsonl --backend builtin --reindex --report ../../tests/memory-benchmark/reports/universal_robust_builtin.json --markdown-report ../../tests/memory-benchmark/reports/universal_robust_builtin.md",
+    "start": "node bin/awareness-local.mjs start",
+    "postinstall": "node install-transformers.mjs",
+    "prepublishOnly": "node scripts/prepublish-gate.mjs",
+    "check:vector-drift": "node scripts/check-vector-drift.mjs",
+    "test:anchoring": "node --test test/anchoring-*.test.mjs test/card-digest-profile.test.mjs",
+    "solana:configure": "node scripts/solana-configure.mjs"
+  },
+  "bugs": {
+    "url": "https://github.com/XiaoHai67890/Awareness-Market-Solana/issues"
+  },
+  "homepage": "https://awareness.market",
+  "private": true
+}

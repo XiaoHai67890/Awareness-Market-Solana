@@ -1,0 +1,728 @@
+{
+  "address": "9RQqnFRPg2z7XNtggHLTnw3sREjwivB88mXZjuMnvxit",
+  "metadata": {
+    "name": "awareness_memory",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Solana-native private agent memory transition registry"
+  },
+  "instructions": [
+    {
+      "name": "commit_transition",
+      "discriminator": [
+        190,
+        208,
+        54,
+        130,
+        232,
+        106,
+        69,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authorizer",
+          "signer": true,
+          "relations": [
+            "memory_space"
+          ]
+        },
+        {
+          "name": "memory_space",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "memory_space.space_id",
+                "account": "Space"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  110,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "memory_space.space_id",
+                "account": "Space"
+              },
+              {
+                "kind": "arg",
+                "path": "sequence"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "sequence",
+          "type": "u64"
+        },
+        {
+          "name": "prev_state_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "delta_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "provenance_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "profile_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "locator_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "register_space",
+      "discriminator": [
+        157,
+        216,
+        139,
+        21,
+        233,
+        99,
+        35,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "controller",
+          "signer": true
+        },
+        {
+          "name": "memory_space",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "space_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "space_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "salt",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "authorizer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_authorization",
+      "discriminator": [
+        5,
+        166,
+        202,
+        161,
+        200,
+        241,
+        154,
+        49
+      ],
+      "accounts": [
+        {
+          "name": "controller",
+          "signer": true,
+          "relations": [
+            "memory_space"
+          ]
+        },
+        {
+          "name": "memory_space",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "memory_space.space_id",
+                "account": "Space"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_controller",
+          "type": "pubkey"
+        },
+        {
+          "name": "new_authorizer",
+          "type": "pubkey"
+        },
+        {
+          "name": "nonce",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Space",
+      "discriminator": [
+        120,
+        45,
+        163,
+        4,
+        216,
+        104,
+        38,
+        215
+      ]
+    },
+    {
+      "name": "TransitionReceipt",
+      "discriminator": [
+        90,
+        155,
+        39,
+        171,
+        136,
+        145,
+        244,
+        171
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AuthorizationUpdated",
+      "discriminator": [
+        31,
+        104,
+        57,
+        38,
+        145,
+        21,
+        44,
+        23
+      ]
+    },
+    {
+      "name": "SpaceRegistered",
+      "discriminator": [
+        121,
+        107,
+        220,
+        221,
+        192,
+        70,
+        94,
+        198
+      ]
+    },
+    {
+      "name": "TransitionCommitted",
+      "discriminator": [
+        163,
+        30,
+        161,
+        255,
+        77,
+        34,
+        154,
+        137
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ZeroAuthority",
+      "msg": "Controller and authorizer must be nonzero"
+    },
+    {
+      "code": 6001,
+      "name": "ZeroSpaceId",
+      "msg": "Space ID must be nonzero"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidSpaceId",
+      "msg": "Space ID does not derive from the initial controller and salt"
+    },
+    {
+      "code": 6003,
+      "name": "Unauthorized",
+      "msg": "Current controller or authorizer must sign"
+    },
+    {
+      "code": 6004,
+      "name": "BadSequence",
+      "msg": "Sequence must advance by exactly one"
+    },
+    {
+      "code": 6005,
+      "name": "BadPreviousState",
+      "msg": "Previous root does not equal the current root"
+    },
+    {
+      "code": 6006,
+      "name": "ZeroDeltaCommitment",
+      "msg": "Delta commitment must be nonzero"
+    },
+    {
+      "code": 6007,
+      "name": "ZeroProfileId",
+      "msg": "Profile ID must be nonzero"
+    },
+    {
+      "code": 6008,
+      "name": "SequenceOverflow",
+      "msg": "Sequence cannot exceed u64"
+    },
+    {
+      "code": 6009,
+      "name": "BadNonce",
+      "msg": "Authorization nonce must advance by exactly one"
+    },
+    {
+      "code": 6010,
+      "name": "NonceOverflow",
+      "msg": "Authorization nonce cannot exceed u64"
+    },
+    {
+      "code": 6011,
+      "name": "UnsupportedVersion",
+      "msg": "Account version is unsupported"
+    }
+  ],
+  "types": [
+    {
+      "name": "AuthorizationUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "space_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "new_controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authorizer",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Space",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "space_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "initial_controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "salt",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "authorizer",
+            "type": "pubkey"
+          },
+          {
+            "name": "sequence",
+            "type": "u64"
+          },
+          {
+            "name": "config_nonce",
+            "type": "u64"
+          },
+          {
+            "name": "transition_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "state_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SpaceRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "space_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "authorizer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransitionCommitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "space_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "sequence",
+            "type": "u64"
+          },
+          {
+            "name": "transition_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "prev_state_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "next_state_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "delta_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "provenance_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "profile_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "locator_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authorizer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransitionReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "space_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "sequence",
+            "type": "u64"
+          },
+          {
+            "name": "prev_state_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "delta_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "provenance_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "profile_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "locator_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "transition_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "next_state_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authorizer",
+            "type": "pubkey"
+          },
+          {
+            "name": "observed_slot",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

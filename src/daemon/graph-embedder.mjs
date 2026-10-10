@@ -1,0 +1,395 @@
+/**
+ * Graph Embedder — batch embed graph_nodes and generate similarity edges.
+ *
+ * Phase 5 T-030: fills the graph_embeddings table with ONNX local vectors,
+ * then computes pairwise cosine similarity to create 'similarity' edges
+ * in graph_edges. Runs in background after workspace indexing completes.
+ *
+ * Design:
+ * - Batch processing (BATCH_SIZE texts per ONNX call) to avoid OOM
+ * - CJK auto-detection for multilingual model selection
+ * - ScanState progress tracking (embed_total / embed_done)
+ * - Top-K similarity per node to avoid O(N²) edge explosion
+ * - Graceful degradation: if embedder unavailable, logs and returns
+ */
+
+import { detectNeedsCJK } from '../core/lang-detect.mjs';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Max texts per embedBatch call — keeps ONNX WASM memory bounded. */
+const BATCH_SIZE = 16;
+
+/** Max characters per text for embedding input — truncate longer content. */
+const MAX_EMBED_CHARS = 1500;
+
+/** Minimum cosine similarity to create a 'similarity' edge. */
+const SIMILARITY_THRESHOLD = 0.55;
+
+/** Maximum number of similarity edges per node (top-K). */
+const MAX_EDGES_PER_NODE = 8;
+
+// ---------------------------------------------------------------------------
+// Text preparation
+// ---------------------------------------------------------------------------
+
+/**
+ * Prepare embedding text from a graph node.
+ * Title is always included; content is truncated to MAX_EMBED_CHARS.
+ *
+ * @param {{ id: string, node_type: string, title: string, content: string }} node
+ * @returns {string}
+ */
+function prepareEmbedText(node) {
+  const title = (node.title || '').trim();
+  const content = (node.content || '').trim();
+
+  if (!content) return title;
+
+  // For symbols, content is just the signature — use as-is
+  if (node.node_type === 'symbol') {
+    return `${title}: ${content}`;
+  }
+
+  // For files and wiki, truncate content
+  const truncated = content.length > MAX_EMBED_CHARS
+    ? content.slice(0, MAX_EMBED_CHARS)
+    : content;
+
+  return `${title}\n${truncated}`;
+}
+
+// ---------------------------------------------------------------------------
+// Batch embedding
+// ---------------------------------------------------------------------------
+
+/**
+ * Embed all graph nodes that don't yet have embeddings.
+ *
+ * @param {object} daemon — daemon instance with _embedder and indexer
+ * @param {object} [options]
+ * @param {function} [options.onProgress] — called with (done, total)
+ * @param {AbortSignal} [options.signal] — cancellation signal (switchProject aborts here)
+ * @returns {Promise<{ embedded: number, skipped: number, total: number }>}
+ */
+export async function embedGraphNodes(daemon, options = {}) {
+  const { onProgress, signal } = options;
+
+  if (!daemon._embedder) {
+    console.warn('[graph-embedder] Embedder not available — skipping graph embedding');
+    return { embedded: 0, skipped: 0, total: 0 };
+  }
+
+  // Check embedding availability
+  try {
+    const available = await daemon._embedder.isEmbeddingAvailable();
+    if (!available) {
+      console.warn('[graph-embedder] @huggingface/transformers not installed — skipping');
+      return { embedded: 0, skipped: 0, total: 0 };
+    }
+  } catch {
+    console.warn('[graph-embedder] Embedder check failed — skipping');
+    return { embedded: 0, skipped: 0, total: 0 };
+  }
+
+  // Snapshot the indexer reference so we don't swap to a new workspace's DB
+  // mid-pipeline if switchProject() runs while we're embedding.
+  const indexer = daemon.indexer;
+  if (!indexer) return { embedded: 0, skipped: 0, total: 0 };
+  const unembedded = indexer.getUnembeddedGraphNodes();
+  const total = unembedded.length;
+
+  if (total === 0) {
+    console.log('[graph-embedder] All graph nodes already embedded');
+    return { embedded: 0, skipped: 0, total: 0 };
+  }
+
+  // 0.11.2 · hard cap on embedding work per pass to prevent UI hang on
+  // huge workspaces (e.g. switching INTO the Awareness monorepo with
+  // 11k+ graph nodes pegged CPU at 359% and crashed `/healthz`).
+  // Process at most this many nodes per pass; subsequent passes pick up
+  // remaining nodes incrementally during normal operation.
+  const maxPerPass = options.maxEmbedPerPass ?? Number(process.env.AWARENESS_GRAPH_EMBED_MAX_PER_PASS || 256);
+  const maxElapsedMs = options.maxElapsedMs ?? 10_000;
+  const workSet = total > maxPerPass ? unembedded.slice(0, maxPerPass) : unembedded;
+  if (total > maxPerPass) {
+    console.log(
+      `[graph-embedder] Large workspace (${total} unembedded). ` +
+      `Embedding ${workSet.length} nodes this pass; rest will catch up incrementally. ` +
+      `(Override via env AWARENESS_GRAPH_EMBED_MAX_PER_PASS.)`
+    );
+  } else {
+    console.log(`[graph-embedder] Embedding ${total} graph nodes (budget ${maxElapsedMs}ms)...`);
+  }
+  const t0 = Date.now();
+
+  let embedded = 0;
+  let skipped = 0;
+
+  const targetCount = workSet.length;
+  // Process in batches
+  for (let i = 0; i < targetCount; i += BATCH_SIZE) {
+    if (signal?.aborted) {
+      console.log(`[graph-embedder] embed aborted at ${embedded}/${targetCount}`);
+      return { embedded, skipped, total, remaining: Math.max(0, total - embedded - skipped), aborted: true };
+    }
+    if (Date.now() - t0 > maxElapsedMs) {
+      console.log(`[graph-embedder] embed time-budget exceeded (${maxElapsedMs}ms) at ${embedded}/${targetCount}`);
+      return { embedded, skipped, total, remaining: Math.max(0, total - embedded - skipped), aborted: 'budget' };
+    }
+    const batch = workSet.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(prepareEmbedText);
+
+    // Filter out empty texts
+    const validIndices = [];
+    const validTexts = [];
+    for (let j = 0; j < texts.length; j++) {
+      if (texts[j].length > 0) {
+        validIndices.push(j);
+        validTexts.push(texts[j]);
+      }
+    }
+
+    if (validTexts.length === 0) {
+      skipped += batch.length;
+      continue;
+    }
+
+    try {
+      // Default: CJK-gated — matches embedding-helpers.mjs so graph nodes
+      // and memories agree on model choice for each language. Honour
+      // AWARENESS_EMBEDDER=multilingual opt-in for heavy non-English users.
+      const sampleText = validTexts.slice(0, 3).join(' ');
+      const language = process.env.AWARENESS_EMBEDDER === 'multilingual'
+        ? 'multilingual'
+        : (detectNeedsCJK(sampleText) ? 'multilingual' : 'english');
+      const modelId = daemon._embedder.MODEL_MAP?.[language] || 'all-MiniLM-L6-v2';
+
+      const vectors = await daemon._embedder.embedBatch(validTexts, 'passage', language);
+
+      // Store each embedding. storeGraphEmbedding now silently swallows FK
+      // violations (stale nodes deleted by workspace-scanner concurrently)
+      // and reports skipped=true — we count those in `skipped` rather than
+      // logging a warn line per occurrence.
+      for (let k = 0; k < validIndices.length; k++) {
+        const node = batch[validIndices[k]];
+        const vector = vectors[k];
+        if (vector) {
+          const outcome = indexer.storeGraphEmbedding(node.id, vector, modelId);
+          if (outcome && outcome.inserted) embedded++;
+          else skipped++;
+        } else {
+          skipped++;
+        }
+      }
+
+      // Count nodes with empty text as skipped
+      skipped += batch.length - validIndices.length;
+    } catch (err) {
+      console.warn(`[graph-embedder] Batch embedding failed (offset ${i}): ${err.message}`);
+      skipped += batch.length;
+    }
+
+    if (onProgress) {
+      onProgress(embedded + skipped, total);
+    }
+  }
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[graph-embedder] Embedding complete: ${embedded} embedded, ${skipped} skipped in ${elapsed}s`);
+
+  return { embedded, skipped, total, remaining: Math.max(0, total - embedded - skipped) };
+}
+
+// ---------------------------------------------------------------------------
+// Similarity edge generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate 'similarity' edges between graph nodes based on cosine similarity.
+ *
+ * For each node, finds the top-K most similar nodes (above threshold)
+ * and creates bidirectional similarity edges with weight = cosine score.
+ *
+ * @param {object} daemon — daemon instance with indexer
+ * @param {object} [options]
+ * @param {number} [options.threshold] — minimum cosine similarity (default: SIMILARITY_THRESHOLD)
+ * @param {number} [options.maxEdgesPerNode] — max similar neighbors per node (default: MAX_EDGES_PER_NODE)
+ * @returns {{ edgesCreated: number, nodesProcessed: number }}
+ */
+export async function generateSimilarityEdges(daemon, options = {}) {
+  const threshold = options.threshold ?? SIMILARITY_THRESHOLD;
+  const maxEdges = options.maxEdgesPerNode ?? MAX_EDGES_PER_NODE;
+  // Yield to the Node event loop every N outer-loop iterations so concurrent
+  // HTTP / MCP requests (e.g. Memory tab loads) do not stall while similarity
+  // edges compute on large graphs. See: bench 2026-04-19 — 10898 nodes
+  // previously blocked the event loop for ~152s.
+  // 0.9.12 · tightened from 50→8 after user reported `/healthz` going dead
+  // mid-pipeline on a 6276-node workspace. Each outer iteration runs an
+  // O(N) inner loop of fastCosineSimilarity (384-dim dot product); 50
+  // outer × 6276 inner = ~300k vector dot products between yields, which
+  // is ~250-400 ms of pure CPU on M-series silicon — long enough to fail
+  // a 200 ms healthz timeout. 8 keeps the burst ≤ ~50 ms.
+  const yieldEvery = options.yieldEvery ?? 8;
+  const signal = options.signal;
+  // 0.11.2 · hard cap to prevent UI lock-up on huge workspaces.
+  // User reported workspace switch hanging when entering /Users/<...>/Awareness
+  // (11,667 graph nodes). O(n²) similarity inside a single type-group is
+  // 30M+ comparisons even with split-by-type. We bail out when there are
+  // more than MAX_NODES_FOR_SIMILARITY total embeddings; the user can still
+  // do recall via FTS5 + per-card embedding (which doesn't need this graph).
+  const maxNodes = options.maxNodesForSimilarity ?? Number(process.env.AWARENESS_GRAPH_SIM_MAX_NODES || 2000);
+  // Time budget — abort gracefully even if signal not raised. 30s is the
+  // upper bound users reported tolerating before considering the daemon hung.
+  const maxElapsedMs = options.maxElapsedMs ?? 30_000;
+
+  // Snapshot indexer — mirrors embedGraphNodes. Without this we'd write
+  // B's similarity edges into C's DB after a switch, because daemon.indexer
+  // is a getter that points at whatever workspace is current.
+  const indexer = daemon.indexer;
+  if (!indexer) return { edgesCreated: 0, nodesProcessed: 0 };
+  const allEmbeddings = indexer.getAllGraphEmbeddings();
+  const count = allEmbeddings.length;
+
+  if (count === 0) {
+    console.log('[graph-embedder] No embeddings found — skipping similarity edges');
+    return { edgesCreated: 0, nodesProcessed: 0 };
+  }
+
+  if (count > maxNodes) {
+    console.log(
+      `[graph-embedder] Skipping similarity edges: ${count} nodes > cap ${maxNodes}. ` +
+      `Recall via FTS5 + per-card embedding still works. ` +
+      `(Override via env AWARENESS_GRAPH_SIM_MAX_NODES.)`
+    );
+    return { edgesCreated: 0, nodesProcessed: count, skipped_too_large: true };
+  }
+
+  console.log(`[graph-embedder] Computing similarity edges for ${count} nodes (budget ${maxElapsedMs}ms)...`);
+  const t0 = Date.now();
+
+  // Group by node_type prefix for same-type comparison
+  const byType = new Map();
+  for (const emb of allEmbeddings) {
+    const type = emb.node_id.split(':')[0]; // 'file', 'wiki', 'sym'
+    if (!byType.has(type)) byType.set(type, []);
+    byType.get(type).push(emb);
+  }
+
+  let edgesCreated = 0;
+  let iSinceYield = 0;
+  const processedPairs = new Set();
+
+  for (const [type, embeddings] of byType) {
+    const n = embeddings.length;
+    if (n < 2) continue;
+
+    // For each node, find top-K most similar within same type
+    for (let i = 0; i < n; i++) {
+      const a = embeddings[i];
+      const candidates = [];
+
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const b = embeddings[j];
+
+        // Skip if pair already processed (bidirectional dedup)
+        const pairKey = a.node_id < b.node_id
+          ? `${a.node_id}|${b.node_id}`
+          : `${b.node_id}|${a.node_id}`;
+        if (processedPairs.has(pairKey)) continue;
+
+        const sim = fastCosineSimilarity(a.vector, b.vector);
+        if (sim >= threshold) {
+          candidates.push({ node_id: b.node_id, similarity: sim, pairKey });
+        }
+      }
+
+      // Sort by similarity descending, take top-K
+      candidates.sort((a, b) => b.similarity - a.similarity);
+      const topK = candidates.slice(0, maxEdges);
+
+      for (const c of topK) {
+        if (processedPairs.has(c.pairKey)) continue;
+        processedPairs.add(c.pairKey);
+
+        // Create bidirectional similarity edge
+        indexer.graphInsertEdge({
+          from_node_id: a.node_id,
+          to_node_id: c.node_id,
+          edge_type: 'similarity',
+          weight: Math.round(c.similarity * 1000) / 1000,
+          metadata: { type },
+        });
+
+        edgesCreated++;
+      }
+
+      iSinceYield++;
+      if (iSinceYield >= yieldEvery) {
+        iSinceYield = 0;
+        await new Promise((resolve) => setImmediate(resolve));
+        if (signal?.aborted) {
+          console.log(`[graph-embedder] similarity aborted at ${edgesCreated} edges`);
+          return { edgesCreated, nodesProcessed: count, aborted: true };
+        }
+        // 0.11.2 · time-budget abort independent of caller signal
+        if (Date.now() - t0 > maxElapsedMs) {
+          console.log(`[graph-embedder] similarity time-budget exceeded (${maxElapsedMs}ms) at ${edgesCreated} edges`);
+          return { edgesCreated, nodesProcessed: count, aborted: 'budget' };
+        }
+      }
+    }
+  }
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[graph-embedder] Similarity edges: ${edgesCreated} created across ${byType.size} node types in ${elapsed}s`);
+
+  return { edgesCreated, nodesProcessed: count };
+}
+
+// ---------------------------------------------------------------------------
+// Fast cosine similarity (inlined for hot loop performance)
+// ---------------------------------------------------------------------------
+
+/**
+ * Cosine similarity optimized for the inner loop.
+ * Assumes normalized vectors (embedBatch uses normalize: true),
+ * so cosine = dot product.
+ *
+ * @param {Float32Array} a
+ * @param {Float32Array} b
+ * @returns {number}
+ */
+function fastCosineSimilarity(a, b) {
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+  }
+  return dot;
+}
+
+// ---------------------------------------------------------------------------
+// Combined pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the full graph embedding pipeline:
+ * 1. Embed all unembedded graph nodes
+ * 2. Generate similarity edges
+ *
+ * @param {object} daemon
+ * @param {object} [options]
+ * @param {function} [options.onProgress] — called with (done, total)
+ * @returns {Promise<{ embedding: object, similarity: object }>}
+ */
+export async function runGraphEmbeddingPipeline(daemon, options = {}) {
+  const embedding = await embedGraphNodes(daemon, options);
+  if (embedding.aborted || options.signal?.aborted) {
+    return { embedding, similarity: { edgesCreated: 0, nodesProcessed: 0, aborted: true } };
+  }
+  const similarity = await generateSimilarityEdges(daemon, { signal: options.signal });
+  return { embedding, similarity };
+}

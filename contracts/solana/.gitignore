@@ -1,0 +1,5 @@
+/target/
+/.anchor/
+/.local/
+*.keypair.json
+*-keypair.json
